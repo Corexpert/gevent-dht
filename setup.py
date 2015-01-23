@@ -2,7 +2,7 @@
 
 from setuptools import setup
 setup(name='gevent_dht',
-        version='0.1.3',
+        version='0.1.3-cxp',
         description='Gevent based distributed hash table',
         author='Colin Rice',
         author_email='dah4k0r@gmail.com',
