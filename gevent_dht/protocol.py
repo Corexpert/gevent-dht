@@ -33,15 +33,17 @@ class Protocol():
         
         self.send('UIDRESP ' + self.finger.self.uid)
         
+        self.is_closed = False
+        
     def check_alive(self):
         while True:
             gevent.sleep(60*1)
+            if self.is_closed:
+                return
             if (time.time() - self.Node.last_seen) > 60:
                 self.send('PING')
             if (time.time() - self.Node.last_seen) > 60*5:
-                if self.Node:
-                    self.finger.remove(self.Node)
-                del self
+                self.close()
                 return
         
     def send(self, msg):
@@ -52,9 +54,8 @@ class Protocol():
         while True:
             new_data = conn.recv(32)
             if new_data == '': # If connection failed, close it
-                self.finger.remove(self.Node)
-                self.remote_conn.close()
-                break
+                self.close()
+                return
             msg += new_data
             if '|' in msg:
                 length, remainder = msg.split('|', 1)
@@ -117,10 +118,14 @@ class Protocol():
             
         self.set_handler.handle_msg(self, msg)
             
-    def __del__(self):
+    def close(self):
+        if self.is_closed:
+            return
+        self.finger.remove(self.Node)
         self.send_queue.put(StopIteration)
-        self.remote_conn.shutdown()
+        self.remote_conn.shutdown(socket.SHUT_RDWR)
         self.remote_conn.close()
+        self.is_closed = True
         
         
 class LoopBackProtocol(Protocol):
@@ -146,6 +151,8 @@ class LoopBackProtocol(Protocol):
         gevent.spawn(self.check_alive)
         
         self.send('UIDRESP ' + self.finger.self.uid)
+        
+        self.is_closed = False
         
     def net_msg_send(self, item):
         "Send messages locally so we can talk to ourselves"
